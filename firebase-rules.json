@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "refactoringTracker": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}
+
