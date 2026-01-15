@@ -12,15 +12,45 @@ const firebaseConfig = {
 
 // Инициализация Firebase (CDN версия)
 let database; // Глобальная переменная для доступа из других скриптов
-if (typeof firebase !== 'undefined') {
-    try {
-        firebase.initializeApp(firebaseConfig);
-        database = firebase.database();
-        console.log('Firebase инициализирован успешно');
-    } catch (error) {
-        console.error('Ошибка инициализации Firebase:', error);
+
+// Функция инициализации Firebase
+function initializeFirebase() {
+    if (typeof firebase === 'undefined') {
+        console.error('❌ Firebase SDK не загружен! Проверьте подключение скриптов в index.html');
+        return false;
     }
+    
+    try {
+        // Проверяем, не инициализирован ли уже Firebase
+        if (firebase.apps.length === 0) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        database = firebase.database();
+        console.log('✅ Firebase инициализирован успешно');
+        console.log('📊 Database URL:', firebaseConfig.databaseURL);
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка инициализации Firebase:', error);
+        return false;
+    }
+}
+
+// Пытаемся инициализировать сразу, если Firebase уже загружен
+if (typeof firebase !== 'undefined') {
+    initializeFirebase();
 } else {
-    console.warn('Firebase не загружен. Убедитесь, что скрипты Firebase подключены в index.html');
+    // Если Firebase еще не загружен, ждем загрузки DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeFirebase);
+    } else {
+        // DOM уже загружен, но Firebase может еще загружаться
+        setTimeout(() => {
+            if (typeof firebase !== 'undefined') {
+                initializeFirebase();
+            } else {
+                console.error('❌ Firebase не загрузился после ожидания');
+            }
+        }, 100);
+    }
 }
 

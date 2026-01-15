@@ -73,24 +73,48 @@ function init() {
     try {
         console.log('Инициализация приложения...');
         console.log('Количество фаз:', appState.phases.length);
-        // Загружаем состояние (асинхронно для Firebase)
-        loadState();
         
-        // Настраиваем слушатель изменений в Firebase для синхронизации
-        if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-            database.ref('refactoringTracker').on('value', (snapshot) => {
-                const saved = snapshot.val();
-                if (saved && saved.phases) {
-                    console.log('📥 Получены обновления из Firebase');
-                    isUpdatingFromFirebase = true;
-                    applySavedState(saved);
-                    renderPhases();
-                    renderProgrammers();
-                    updateStats();
-                    isUpdatingFromFirebase = false;
-                }
-            });
+        // Ждем инициализации Firebase (если нужно)
+        const checkFirebase = () => {
+            if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                console.log('✅ Firebase готов к использованию');
+                // Загружаем состояние (асинхронно для Firebase)
+                loadState();
+                
+                // Настраиваем слушатель изменений в Firebase для синхронизации
+                database.ref('refactoringTracker').on('value', (snapshot) => {
+                    const saved = snapshot.val();
+                    if (saved && saved.phases) {
+                        console.log('📥 Получены обновления из Firebase');
+                        isUpdatingFromFirebase = true;
+                        applySavedState(saved);
+                        renderPhases();
+                        renderProgrammers();
+                        updateStats();
+                        isUpdatingFromFirebase = false;
+                    }
+                });
+            } else {
+                console.log('⚠️ Firebase не настроен, используем localStorage');
+                // Загружаем состояние из localStorage
+                loadState();
+            }
+        };
+        
+        // Проверяем Firebase сразу или через небольшую задержку
+        if (typeof database !== 'undefined') {
+            checkFirebase();
+        } else {
+            // Ждем немного, если Firebase еще загружается
+            setTimeout(checkFirebase, 500);
         }
+        
+        // Рендерим интерфейс сразу (независимо от Firebase)
+        renderPhases();
+        console.log('Фазы отрендерены');
+        renderProgrammers();
+        updateStats();
+        setupEventListeners();
         
         // Проверяем, есть ли назначенные MRs. Если нет - распределяем автоматически
         setTimeout(() => {
@@ -101,13 +125,8 @@ function init() {
                 console.log('Автоматическое распределение задач...');
                 distributeTasksEvenly();
             }
-        }, 1000); // Даем время на загрузку данных
+        }, 1500); // Даем время на загрузку данных из Firebase
         
-        renderPhases();
-        console.log('Фазы отрендерены');
-        renderProgrammers();
-        updateStats();
-        setupEventListeners();
         console.log('Инициализация завершена');
     } catch (error) {
         console.error('Ошибка инициализации:', error);
