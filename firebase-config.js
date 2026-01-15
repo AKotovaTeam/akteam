@@ -68,22 +68,19 @@ function initializeFirebase() {
     return tryInit();
 }
 
-// Пытаемся инициализировать сразу, если Firebase уже загружен
-if (typeof firebase !== 'undefined') {
-    initializeFirebase();
-} else {
-    // Если Firebase еще не загружен, ждем загрузки DOM
+// Пытаемся инициализировать Firebase после загрузки DOM
+function startFirebaseInit() {
+    // Ждем, пока скрипты загрузятся
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initializeFirebase);
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initializeFirebase, 500); // Даем время на загрузку скриптов
+        });
     } else {
-        // DOM уже загружен, но Firebase может еще загружаться
-        setTimeout(() => {
-            if (typeof firebase !== 'undefined') {
-                initializeFirebase();
-            } else {
-                console.error('❌ Firebase не загрузился после ожидания');
-            }
-        }, 100);
+        // DOM уже загружен
+        setTimeout(initializeFirebase, 1000); // Даем больше времени на загрузку скриптов Firebase
     }
 }
+
+// Запускаем инициализацию
+startFirebaseInit();
 
