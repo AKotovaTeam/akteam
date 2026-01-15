@@ -109,12 +109,14 @@ function init() {
             setTimeout(checkFirebase, 500);
         }
         
-        // Рендерим интерфейс сразу (независимо от Firebase)
+        // Настраиваем обработчики событий сразу
+        setupEventListeners();
+        
+        // Рендерим интерфейс с начальными данными (данные загрузятся асинхронно и обновят интерфейс)
         renderPhases();
-        console.log('Фазы отрендерены');
+        console.log('Фазы отрендерены (начальное состояние)');
         renderProgrammers();
         updateStats();
-        setupEventListeners();
         
         // Проверяем, есть ли назначенные MRs. Если нет - распределяем автоматически
         setTimeout(() => {
