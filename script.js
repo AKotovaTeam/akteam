@@ -156,12 +156,15 @@ function loadState() {
             database.ref('refactoringTracker').once('value')
                 .then((snapshot) => {
                     const saved = snapshot.val();
+                    console.log('📊 Данные из Firebase:', saved);
                     if (saved && saved.phases) {
-                        console.log('✅ Данные загружены из Firebase');
+                        console.log('✅ Данные загружены из Firebase, применяем состояние...');
                         applySavedState(saved);
+                        console.log('✅ Состояние применено, обновляем интерфейс...');
                         renderPhases();
                         renderProgrammers();
                         updateStats();
+                        console.log('✅ Интерфейс обновлен с данными из Firebase');
                     } else {
                         console.log('ℹ️ В Firebase нет данных, загружаем из localStorage');
                         // Если в Firebase нет данных, загружаем из localStorage
@@ -190,10 +193,18 @@ function loadFromLocalStorage() {
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
+            console.log('📊 Данные из localStorage:', parsed);
+            console.log('✅ Применяем состояние из localStorage...');
             applySavedState(parsed);
+            renderPhases();
+            renderProgrammers();
+            updateStats();
+            console.log('✅ Интерфейс обновлен с данными из localStorage');
         } catch (e) {
             console.error('Ошибка загрузки данных из localStorage:', e);
         }
+    } else {
+        console.log('ℹ️ В localStorage нет сохраненных данных');
     }
 }
 
