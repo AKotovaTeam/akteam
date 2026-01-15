@@ -242,6 +242,7 @@ function loadFromLocalStorage() {
 }
 
 function applySavedState(saved) {
+    console.log('🔄 Применяем сохраненное состояние...', saved);
     // Объединяем сохраненные данные с исходными
     appState.phases = phasesData.map((phase, index) => {
         const savedPhase = saved.phases[index];
@@ -267,9 +268,27 @@ function applySavedState(saved) {
                 mrsList.splice(phase.mrs);
             }
             
+            // Нормализуем completedMRs - конвертируем старый формат в новый
+            let completedMRs = savedPhase.completedMRs || [];
+            // Если есть старый формат (без -mr-), конвертируем
+            completedMRs = completedMRs.map(mrId => {
+                // Если формат "1-1", конвертируем в "1-mr-1"
+                if (/^\d+-\d+$/.test(mrId) && !mrId.includes('-mr-')) {
+                    return mrId.replace(/^(\d+)-(\d+)$/, '$1-mr-$2');
+                }
+                return mrId;
+            });
+            
+            console.log(`📋 Фаза ${phase.id} (${phase.name}):`, {
+                completedMRs: completedMRs,
+                completedCount: completedMRs.length,
+                totalMRs: phase.mrs,
+                mrsList: mrsList.length
+            });
+            
             return {
                 ...phase,
-                completedMRs: savedPhase.completedMRs || [],
+                completedMRs: completedMRs,
                 mrsList: mrsList
             };
         }
@@ -279,6 +298,7 @@ function applySavedState(saved) {
             mrsList: defaultMRsList
         };
     });
+    console.log('✅ Состояние применено');
 }
 
 // Флаг для предотвращения бесконечного цикла обновлений
@@ -425,7 +445,8 @@ function createPhaseCard(phase) {
     
     // Генерируем список MRs с назначениями
     const mrsListHTML = phase.mrsList.map((mr) => {
-        const mrId = `${phase.id}-${mr.number}`;
+        // Используем формат ID, который соответствует сохраненному формату
+        const mrId = mr.id || `${phase.id}-mr-${mr.number}`;
         const isCompleted = phase.completedMRs.includes(mrId);
         const assignedBadge = mr.assignedTo 
             ? `<span class="programmer-badge-small ${mr.assignedTo}">
