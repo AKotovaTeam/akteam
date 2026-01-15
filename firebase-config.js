@@ -17,19 +17,35 @@ let database; // Глобальная переменная для доступа
 function initializeFirebase() {
     // Проверяем наличие firebase несколько раз с задержкой
     let attempts = 0;
-    const maxAttempts = 10;
+    const maxAttempts = 20; // Увеличиваем количество попыток
     
     const tryInit = () => {
         attempts++;
         
-        if (typeof firebase === 'undefined' || typeof firebase.initializeApp === 'undefined') {
+        // Проверяем наличие firebase и его методов
+        if (typeof firebase === 'undefined') {
             if (attempts < maxAttempts) {
-                console.log(`Попытка ${attempts}: Ожидание загрузки Firebase...`);
-                setTimeout(tryInit, 200);
+                console.log(`Попытка ${attempts}: Ожидание загрузки Firebase... (typeof firebase = ${typeof firebase})`);
+                setTimeout(tryInit, 300); // Увеличиваем задержку
                 return;
             } else {
                 console.error('❌ Firebase SDK не загружен после', maxAttempts, 'попыток!');
-                console.error('Проверьте подключение скриптов в index.html и консоль на ошибки');
+                console.error('Проверьте:');
+                console.error('1. Откройте вкладку Network в консоли и проверьте, загружаются ли файлы firebase-app.js и firebase-database.js');
+                console.error('2. Проверьте, нет ли ошибок CORS или блокировки скриптов');
+                console.error('3. Попробуйте открыть сайт в режиме инкогнито');
+                return false;
+            }
+        }
+        
+        // Проверяем наличие метода initializeApp
+        if (typeof firebase.initializeApp === 'undefined') {
+            if (attempts < maxAttempts) {
+                console.log(`Попытка ${attempts}: Firebase загружен, но initializeApp еще не доступен...`);
+                setTimeout(tryInit, 300);
+                return;
+            } else {
+                console.error('❌ firebase.initializeApp не найден!');
                 return false;
             }
         }

@@ -91,8 +91,9 @@
         </div>
     </div>
 
-    <!-- Firebase SDK v6.10.0 - полный bundle (все в одном файле) -->
-    <script src="https://www.gstatic.com/firebasejs/6.10.0/firebase.js"></script>
+    <!-- Firebase SDK v6.10.0 - отдельные файлы (более надежно) -->
+    <script src="https://www.gstatic.com/firebasejs/6.10.0/firebase-app.js" onerror="console.error('Ошибка загрузки firebase-app.js')" onload="console.log('firebase-app.js загружен')"></script>
+    <script src="https://www.gstatic.com/firebasejs/6.10.0/firebase-database.js" onerror="console.error('Ошибка загрузки firebase-database.js')" onload="console.log('firebase-database.js загружен')"></script>
     <!-- Наши скрипты после Firebase -->
     <script src="firebase-config.js"></script>
     <script src="script.js"></script>
