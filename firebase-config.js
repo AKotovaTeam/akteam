@@ -65,6 +65,12 @@ function initializeFirebase() {
             database = firebase.database();
             console.log('✅ Firebase инициализирован успешно');
             console.log('📊 Database URL:', firebaseConfig.databaseURL);
+            
+            // Уведомляем о готовности Firebase
+            window.firebaseReady = true;
+            const event = new CustomEvent('firebaseReady');
+            window.dispatchEvent(event);
+            
             return true;
         } catch (error) {
             console.error('❌ Ошибка инициализации Firebase:', error);

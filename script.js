@@ -74,11 +74,12 @@ function init() {
         console.log('Инициализация приложения...');
         console.log('Количество фаз:', appState.phases.length);
         
-        // Ждем инициализации Firebase (если нужно)
-        const checkFirebase = () => {
+        // Ждем инициализации Firebase перед загрузкой данных
+        const setupFirebase = () => {
             if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
                 console.log('✅ Firebase готов к использованию');
-                // Загружаем состояние (асинхронно для Firebase)
+                
+                // Загружаем состояние из Firebase
                 loadState();
                 
                 // Настраиваем слушатель изменений в Firebase для синхронизации
@@ -101,13 +102,45 @@ function init() {
             }
         };
         
-        // Проверяем Firebase сразу или через небольшую задержку
-        if (typeof database !== 'undefined') {
-            checkFirebase();
-        } else {
-            // Ждем немного, если Firebase еще загружается
-            setTimeout(checkFirebase, 500);
-        }
+        // Ждем события готовности Firebase или проверяем через интервал
+        const waitForFirebase = () => {
+            if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                setupFirebase();
+            } else if (window.firebaseReady) {
+                // Firebase готов, но database еще не определен - ждем немного
+                setTimeout(() => {
+                    if (typeof database !== 'undefined') {
+                        setupFirebase();
+                    } else {
+                        console.log('⚠️ Firebase помечен как готовый, но database недоступен, используем localStorage');
+                        loadState();
+                    }
+                }, 500);
+            } else {
+                // Ждем события готовности Firebase
+                window.addEventListener('firebaseReady', () => {
+                    console.log('📢 Событие firebaseReady получено');
+                    setTimeout(setupFirebase, 100);
+                }, { once: true });
+                
+                // Fallback: проверяем через интервал
+                let attempts = 0;
+                const maxAttempts = 20;
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+                        clearInterval(checkInterval);
+                        setupFirebase();
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(checkInterval);
+                        console.log('⚠️ Firebase не загрузился после ожидания, используем localStorage');
+                        loadState();
+                    }
+                }, 300);
+            }
+        };
+        
+        waitForFirebase();
         
         // Настраиваем обработчики событий сразу
         setupEventListeners();
