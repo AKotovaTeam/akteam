@@ -91,48 +91,23 @@
         </div>
     </div>
 
-    <!-- Firebase SDK - динамическая загрузка с проверкой -->
+    <!-- Firebase SDK - используем версию 7.25.0 через обычные теги script -->
+    <script src="https://www.gstatic.com/firebasejs/7.25.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/7.25.0/firebase-database.js"></script>
     <script>
-        (function() {
-            console.log('🔄 Начинаем загрузку Firebase SDK...');
-            
-            // Функция для загрузки скрипта
-            function loadScript(src, callback) {
-                const script = document.createElement('script');
-                script.src = src;
-                script.async = false; // Важно: загружаем синхронно
-                script.onload = function() {
-                    console.log('✅ Загружен:', src);
-                    if (callback) callback();
-                };
-                script.onerror = function() {
-                    console.error('❌ Ошибка загрузки:', src);
-                    if (callback) callback(new Error('Failed to load ' + src));
-                };
-                document.head.appendChild(script);
-            }
-            
-            // Загружаем Firebase по порядку
-            loadScript('https://www.gstatic.com/firebasejs/6.10.0/firebase-app.js', function(err) {
-                if (err) {
-                    console.error('Критическая ошибка: не удалось загрузить firebase-app.js');
-                    return;
+        // Проверяем загрузку Firebase
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (typeof firebase !== 'undefined') {
+                    console.log('✅ Firebase SDK загружен (версия 7.25.0)');
+                    console.log('firebase объект:', typeof firebase);
+                    console.log('firebase.initializeApp:', typeof firebase.initializeApp);
+                } else {
+                    console.error('❌ Firebase SDK не загружен!');
+                    console.error('Проверьте вкладку Network в консоли на наличие ошибок загрузки');
                 }
-                loadScript('https://www.gstatic.com/firebasejs/6.10.0/firebase-database.js', function(err) {
-                    if (err) {
-                        console.error('Критическая ошибка: не удалось загрузить firebase-database.js');
-                        return;
-                    }
-                    console.log('✅ Все скрипты Firebase загружены');
-                    // Проверяем, что firebase доступен
-                    if (typeof firebase !== 'undefined') {
-                        console.log('✅ Firebase объект доступен');
-                    } else {
-                        console.error('❌ Firebase объект не найден после загрузки скриптов');
-                    }
-                });
-            });
-        })();
+            }, 2000);
+        });
     </script>
     <!-- Наши скрипты после Firebase -->
     <script src="firebase-config.js"></script>

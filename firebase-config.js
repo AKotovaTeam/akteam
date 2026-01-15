@@ -17,7 +17,7 @@ let database; // Глобальная переменная для доступа
 function initializeFirebase() {
     // Проверяем наличие firebase несколько раз с задержкой
     let attempts = 0;
-    const maxAttempts = 20; // Увеличиваем количество попыток
+    const maxAttempts = 30; // Еще больше попыток
     
     const tryInit = () => {
         attempts++;
@@ -25,15 +25,19 @@ function initializeFirebase() {
         // Проверяем наличие firebase и его методов
         if (typeof firebase === 'undefined') {
             if (attempts < maxAttempts) {
-                console.log(`Попытка ${attempts}: Ожидание загрузки Firebase... (typeof firebase = ${typeof firebase})`);
-                setTimeout(tryInit, 300); // Увеличиваем задержку
+                if (attempts % 5 === 0) { // Логируем каждую 5-ю попытку
+                    console.log(`Попытка ${attempts}/${maxAttempts}: Ожидание загрузки Firebase...`);
+                }
+                setTimeout(tryInit, 500); // Увеличиваем задержку до 500мс
                 return;
             } else {
                 console.error('❌ Firebase SDK не загружен после', maxAttempts, 'попыток!');
-                console.error('Проверьте:');
-                console.error('1. Откройте вкладку Network в консоли и проверьте, загружаются ли файлы firebase-app.js и firebase-database.js');
-                console.error('2. Проверьте, нет ли ошибок CORS или блокировки скриптов');
-                console.error('3. Попробуйте открыть сайт в режиме инкогнито');
+                console.error('Диагностика:');
+                console.error('1. Проверьте вкладку Network - загружаются ли firebase-app.js и firebase-database.js?');
+                console.error('2. Проверьте, нет ли ошибок CORS (красные записи в Network)');
+                console.error('3. Отключите блокировщики рекламы и расширения браузера');
+                console.error('4. Попробуйте открыть сайт в режиме инкогнито');
+                console.error('5. Проверьте консоль на наличие других ошибок выше');
                 return false;
             }
         }
@@ -41,11 +45,14 @@ function initializeFirebase() {
         // Проверяем наличие метода initializeApp
         if (typeof firebase.initializeApp === 'undefined') {
             if (attempts < maxAttempts) {
-                console.log(`Попытка ${attempts}: Firebase загружен, но initializeApp еще не доступен...`);
-                setTimeout(tryInit, 300);
+                if (attempts % 5 === 0) {
+                    console.log(`Попытка ${attempts}/${maxAttempts}: Firebase загружен, но initializeApp еще не доступен...`);
+                }
+                setTimeout(tryInit, 500);
                 return;
             } else {
-                console.error('❌ firebase.initializeApp не найден!');
+                console.error('❌ firebase.initializeApp не найден после загрузки!');
+                console.error('firebase объект:', firebase);
                 return false;
             }
         }
@@ -61,6 +68,7 @@ function initializeFirebase() {
             return true;
         } catch (error) {
             console.error('❌ Ошибка инициализации Firebase:', error);
+            console.error('Stack trace:', error.stack);
             return false;
         }
     };
@@ -68,16 +76,23 @@ function initializeFirebase() {
     return tryInit();
 }
 
-// Пытаемся инициализировать Firebase после загрузки DOM
+// Пытаемся инициализировать Firebase после загрузки всех скриптов
 function startFirebaseInit() {
-    // Ждем, пока скрипты загрузятся
+    // Ждем полной загрузки страницы
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(initializeFirebase, 500); // Даем время на загрузку скриптов
+        window.addEventListener('load', function() {
+            console.log('📄 Страница загружена, начинаем инициализацию Firebase...');
+            setTimeout(initializeFirebase, 2000); // Даем 2 секунды на загрузку всех скриптов
+        });
+    } else if (document.readyState === 'interactive') {
+        window.addEventListener('load', function() {
+            console.log('📄 Страница интерактивна, начинаем инициализацию Firebase...');
+            setTimeout(initializeFirebase, 2000);
         });
     } else {
-        // DOM уже загружен
-        setTimeout(initializeFirebase, 1000); // Даем больше времени на загрузку скриптов Firebase
+        // DOM уже полностью загружен
+        console.log('📄 DOM готов, начинаем инициализацию Firebase...');
+        setTimeout(initializeFirebase, 2000);
     }
 }
 
