@@ -137,27 +137,47 @@ function init() {
 // Загрузка состояния из localStorage
 function loadState() {
     // Сначала пытаемся загрузить из Firebase
-    if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-        database.ref('refactoringTracker').once('value')
-            .then((snapshot) => {
-                const saved = snapshot.val();
-                if (saved && saved.phases) {
-                    console.log('Данные загружены из Firebase');
-                    applySavedState(saved);
-                    renderPhases();
-                    renderProgrammers();
-                    updateStats();
-                } else {
-                    // Если в Firebase нет данных, загружаем из localStorage
+    const firebaseAvailable = typeof database !== 'undefined' && 
+                              typeof firebaseConfig !== 'undefined' && 
+                              firebaseConfig && 
+                              firebaseConfig.apiKey !== "YOUR_API_KEY";
+    
+    console.log('📥 Загрузка данных...', {
+        database: typeof database !== 'undefined' ? '✅' : '❌',
+        firebaseConfig: typeof firebaseConfig !== 'undefined' ? '✅' : '❌',
+        apiKey: firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY" ? '✅' : '❌',
+        firebaseAvailable: firebaseAvailable ? '✅' : '❌'
+    });
+    
+    if (firebaseAvailable) {
+        try {
+            database.ref('refactoringTracker').once('value')
+                .then((snapshot) => {
+                    const saved = snapshot.val();
+                    if (saved && saved.phases) {
+                        console.log('✅ Данные загружены из Firebase');
+                        applySavedState(saved);
+                        renderPhases();
+                        renderProgrammers();
+                        updateStats();
+                    } else {
+                        console.log('ℹ️ В Firebase нет данных, загружаем из localStorage');
+                        // Если в Firebase нет данных, загружаем из localStorage
+                        loadFromLocalStorage();
+                    }
+                })
+                .catch((error) => {
+                    console.error('❌ Ошибка загрузки из Firebase:', error);
+                    console.error('Детали ошибки:', error.message, error.code);
+                    // Fallback на localStorage
                     loadFromLocalStorage();
-                }
-            })
-            .catch((error) => {
-                console.error('Ошибка загрузки из Firebase:', error);
-                // Fallback на localStorage
-                loadFromLocalStorage();
-            });
+                });
+        } catch (error) {
+            console.error('❌ Исключение при загрузке из Firebase:', error);
+            loadFromLocalStorage();
+        }
     } else {
+        console.log('ℹ️ Firebase недоступен, используем localStorage');
         // Используем localStorage как fallback
         loadFromLocalStorage();
     }
