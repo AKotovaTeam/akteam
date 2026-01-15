@@ -91,42 +91,41 @@
         </div>
     </div>
 
-    <!-- Firebase SDK v6.6.1 - старая стабильная версия через unpkg CDN (альтернативный CDN) -->
-    <script src="https://unpkg.com/firebase@6.6.1/dist/firebase-app.js"></script>
-    <script src="https://unpkg.com/firebase@6.6.1/dist/firebase-database.js"></script>
+    <!-- Firebase SDK v6.6.1 - используем Google CDN (работает стабильно) -->
     <script>
-        // Проверяем загрузку Firebase
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                if (typeof firebase !== 'undefined') {
-                    console.log('✅ Firebase SDK загружен через unpkg (версия 6.6.1)');
-                    console.log('firebase объект:', typeof firebase);
-                    console.log('firebase.initializeApp:', typeof firebase.initializeApp);
-                } else {
-                    console.error('❌ Firebase SDK не загружен через unpkg!');
-                    console.log('Пробуем загрузить через стандартный Google CDN...');
-                    // Fallback: загружаем через стандартный Google CDN
-                    const script1 = document.createElement('script');
-                    script1.src = 'https://www.gstatic.com/firebasejs/6.6.1/firebase-app.js';
-                    script1.onerror = function() {
-                        console.error('❌ Ошибка загрузки firebase-app.js через Google CDN');
+        // Динамическая загрузка Firebase через Google CDN
+        (function() {
+            console.log('🔄 Загрузка Firebase SDK через Google CDN...');
+            
+            function loadScript(src, name) {
+                return new Promise(function(resolve, reject) {
+                    const script = document.createElement('script');
+                    script.src = src;
+                    script.async = false;
+                    script.onload = function() {
+                        console.log('✅ ' + name + ' загружен');
+                        resolve();
                     };
-                    script1.onload = function() {
-                        console.log('✅ firebase-app.js загружен через Google CDN');
-                        const script2 = document.createElement('script');
-                        script2.src = 'https://www.gstatic.com/firebasejs/6.6.1/firebase-database.js';
-                        script2.onerror = function() {
-                            console.error('❌ Ошибка загрузки firebase-database.js через Google CDN');
-                        };
-                        script2.onload = function() {
-                            console.log('✅ firebase-database.js загружен через Google CDN');
-                        };
-                        document.head.appendChild(script2);
+                    script.onerror = function() {
+                        console.error('❌ Ошибка загрузки ' + name);
+                        reject(new Error('Failed to load ' + name));
                     };
-                    document.head.appendChild(script1);
-                }
-            }, 1500);
-        });
+                    document.head.appendChild(script);
+                });
+            }
+            
+            // Загружаем последовательно
+            loadScript('https://www.gstatic.com/firebasejs/6.6.1/firebase-app.js', 'firebase-app.js')
+                .then(function() {
+                    return loadScript('https://www.gstatic.com/firebasejs/6.6.1/firebase-database.js', 'firebase-database.js');
+                })
+                .then(function() {
+                    console.log('✅ Все скрипты Firebase загружены успешно');
+                })
+                .catch(function(error) {
+                    console.error('❌ Критическая ошибка загрузки Firebase:', error);
+                });
+        })();
     </script>
     <!-- Наши скрипты после Firebase -->
     <script src="firebase-config.js"></script>
