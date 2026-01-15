@@ -15,24 +15,41 @@ let database; // Глобальная переменная для доступа
 
 // Функция инициализации Firebase
 function initializeFirebase() {
-    if (typeof firebase === 'undefined') {
-        console.error('❌ Firebase SDK не загружен! Проверьте подключение скриптов в index.html');
-        return false;
-    }
+    // Проверяем наличие firebase несколько раз с задержкой
+    let attempts = 0;
+    const maxAttempts = 10;
     
-    try {
-        // Проверяем, не инициализирован ли уже Firebase
-        if (firebase.apps.length === 0) {
-            firebase.initializeApp(firebaseConfig);
+    const tryInit = () => {
+        attempts++;
+        
+        if (typeof firebase === 'undefined' || typeof firebase.initializeApp === 'undefined') {
+            if (attempts < maxAttempts) {
+                console.log(`Попытка ${attempts}: Ожидание загрузки Firebase...`);
+                setTimeout(tryInit, 200);
+                return;
+            } else {
+                console.error('❌ Firebase SDK не загружен после', maxAttempts, 'попыток!');
+                console.error('Проверьте подключение скриптов в index.html и консоль на ошибки');
+                return false;
+            }
         }
-        database = firebase.database();
-        console.log('✅ Firebase инициализирован успешно');
-        console.log('📊 Database URL:', firebaseConfig.databaseURL);
-        return true;
-    } catch (error) {
-        console.error('❌ Ошибка инициализации Firebase:', error);
-        return false;
-    }
+        
+        try {
+            // Проверяем, не инициализирован ли уже Firebase
+            if (!firebase.apps || firebase.apps.length === 0) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            database = firebase.database();
+            console.log('✅ Firebase инициализирован успешно');
+            console.log('📊 Database URL:', firebaseConfig.databaseURL);
+            return true;
+        } catch (error) {
+            console.error('❌ Ошибка инициализации Firebase:', error);
+            return false;
+        }
+    };
+    
+    return tryInit();
 }
 
 // Пытаемся инициализировать сразу, если Firebase уже загружен
