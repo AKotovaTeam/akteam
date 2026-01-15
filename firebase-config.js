@@ -11,9 +11,15 @@ const firebaseConfig = {
 };
 
 // Инициализация Firebase (CDN версия)
+let database; // Глобальная переменная для доступа из других скриптов
 if (typeof firebase !== 'undefined') {
-    firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    try {
+        firebase.initializeApp(firebaseConfig);
+        database = firebase.database();
+        console.log('Firebase инициализирован успешно');
+    } catch (error) {
+        console.error('Ошибка инициализации Firebase:', error);
+    }
 } else {
     console.warn('Firebase не загружен. Убедитесь, что скрипты Firebase подключены в index.html');
 }

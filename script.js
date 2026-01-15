@@ -77,12 +77,17 @@ function init() {
         loadState();
         
         // Настраиваем слушатель изменений в Firebase для синхронизации
-        if (typeof database !== 'undefined' && typeof firebaseConfig !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
             database.ref('refactoringTracker').on('value', (snapshot) => {
                 const saved = snapshot.val();
                 if (saved && saved.phases) {
-                    console.log('Получены обновления из Firebase');
+                    console.log('📥 Получены обновления из Firebase');
+                    isUpdatingFromFirebase = true;
                     applySavedState(saved);
+                    renderPhases();
+                    renderProgrammers();
+                    updateStats();
+                    isUpdatingFromFirebase = false;
                 }
             });
         }
@@ -112,55 +117,95 @@ function init() {
 
 // Загрузка состояния из localStorage
 function loadState() {
+    // Сначала пытаемся загрузить из Firebase
+    if (typeof database !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        database.ref('refactoringTracker').once('value')
+            .then((snapshot) => {
+                const saved = snapshot.val();
+                if (saved && saved.phases) {
+                    console.log('Данные загружены из Firebase');
+                    applySavedState(saved);
+                    renderPhases();
+                    renderProgrammers();
+                    updateStats();
+                } else {
+                    // Если в Firebase нет данных, загружаем из localStorage
+                    loadFromLocalStorage();
+                }
+            })
+            .catch((error) => {
+                console.error('Ошибка загрузки из Firebase:', error);
+                // Fallback на localStorage
+                loadFromLocalStorage();
+            });
+    } else {
+        // Используем localStorage как fallback
+        loadFromLocalStorage();
+    }
+}
+
+function loadFromLocalStorage() {
     const saved = localStorage.getItem('refactoringTracker');
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
-            // Объединяем сохраненные данные с исходными
-            appState.phases = phasesData.map((phase, index) => {
-                const savedPhase = parsed.phases[index];
-                const defaultMRsList = Array.from({ length: phase.mrs }, (_, i) => ({
-                    id: `${phase.id}-mr-${i + 1}`,
-                    number: i + 1,
-                    assignedTo: null
-                }));
-                
-                if (savedPhase) {
-                    // Восстанавливаем назначения MRs, если они есть
-                    let mrsList = savedPhase.mrsList || defaultMRsList;
-                    // Если MRs меньше, чем должно быть, дополняем
-                    while (mrsList.length < phase.mrs) {
-                        mrsList.push({
-                            id: `${phase.id}-mr-${mrsList.length + 1}`,
-                            number: mrsList.length + 1,
-                            assignedTo: null
-                        });
-                    }
-                    // Если MRs больше, обрезаем
-                    if (mrsList.length > phase.mrs) {
-                        mrsList.splice(phase.mrs);
-                    }
-                    
-                    return {
-                        ...phase,
-                        completedMRs: savedPhase.completedMRs || [],
-                        mrsList: mrsList
-                    };
-                }
-                return { 
-                    ...phase, 
-                    completedMRs: [],
-                    mrsList: defaultMRsList
-                };
-            });
+            applySavedState(parsed);
         } catch (e) {
-            console.error('Ошибка загрузки данных:', e);
+            console.error('Ошибка загрузки данных из localStorage:', e);
         }
     }
 }
 
+function applySavedState(saved) {
+    // Объединяем сохраненные данные с исходными
+    appState.phases = phasesData.map((phase, index) => {
+        const savedPhase = saved.phases[index];
+        const defaultMRsList = Array.from({ length: phase.mrs }, (_, i) => ({
+            id: `${phase.id}-mr-${i + 1}`,
+            number: i + 1,
+            assignedTo: null
+        }));
+        
+        if (savedPhase) {
+            // Восстанавливаем назначения MRs, если они есть
+            let mrsList = savedPhase.mrsList || defaultMRsList;
+            // Если MRs меньше, чем должно быть, дополняем
+            while (mrsList.length < phase.mrs) {
+                mrsList.push({
+                    id: `${phase.id}-mr-${mrsList.length + 1}`,
+                    number: mrsList.length + 1,
+                    assignedTo: null
+                });
+            }
+            // Если MRs больше, обрезаем
+            if (mrsList.length > phase.mrs) {
+                mrsList.splice(phase.mrs);
+            }
+            
+            return {
+                ...phase,
+                completedMRs: savedPhase.completedMRs || [],
+                mrsList: mrsList
+            };
+        }
+        return { 
+            ...phase, 
+            completedMRs: [],
+            mrsList: defaultMRsList
+        };
+    });
+}
+
+// Флаг для предотвращения бесконечного цикла обновлений
+let isUpdatingFromFirebase = false;
+
 // Сохранение состояния в Firebase или localStorage (fallback)
 function saveState() {
+    // Не сохраняем, если обновление идет из Firebase (чтобы избежать бесконечного цикла)
+    if (isUpdatingFromFirebase) {
+        return;
+    }
+    
     const dataToSave = {
         phases: appState.phases.map(p => ({
             id: p.id,
@@ -173,19 +218,21 @@ function saveState() {
     };
     
     // Сохраняем в Firebase, если настроен
-    if (typeof database !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
         database.ref('refactoringTracker').set(dataToSave)
             .then(() => {
-                console.log('Данные сохранены в Firebase');
+                console.log('✅ Данные сохранены в Firebase');
             })
             .catch((error) => {
-                console.error('Ошибка сохранения в Firebase:', error);
+                console.error('❌ Ошибка сохранения в Firebase:', error);
                 // Fallback на localStorage
                 localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
+                console.log('💾 Данные сохранены в localStorage (fallback)');
             });
     } else {
         // Используем localStorage как fallback
         localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
+        console.log('💾 Данные сохранены в localStorage');
     }
 }
 
