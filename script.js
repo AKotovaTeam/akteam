@@ -137,7 +137,7 @@ function init() {
 // Загрузка состояния из localStorage
 function loadState() {
     // Сначала пытаемся загрузить из Firebase
-    if (typeof database !== 'undefined' && firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
         database.ref('refactoringTracker').once('value')
             .then((snapshot) => {
                 const saved = snapshot.val();
@@ -222,6 +222,7 @@ let isUpdatingFromFirebase = false;
 function saveState() {
     // Не сохраняем, если обновление идет из Firebase (чтобы избежать бесконечного цикла)
     if (isUpdatingFromFirebase) {
+        console.log('⏸️ Пропускаем сохранение (обновление из Firebase)');
         return;
     }
     
@@ -236,22 +237,44 @@ function saveState() {
         updatedBy: getCurrentUser() || 'anonymous'
     };
     
+    // Проверяем доступность Firebase
+    const firebaseAvailable = typeof database !== 'undefined' && 
+                              typeof firebaseConfig !== 'undefined' && 
+                              firebaseConfig && 
+                              firebaseConfig.apiKey !== "YOUR_API_KEY";
+    
+    console.log('💾 Сохранение данных...', {
+        database: typeof database !== 'undefined' ? '✅' : '❌',
+        firebaseConfig: typeof firebaseConfig !== 'undefined' ? '✅' : '❌',
+        apiKey: firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY" ? '✅' : '❌',
+        firebaseAvailable: firebaseAvailable ? '✅' : '❌'
+    });
+    
     // Сохраняем в Firebase, если настроен
-    if (typeof database !== 'undefined' && firebaseConfig && firebaseConfig.apiKey !== "YOUR_API_KEY") {
-        database.ref('refactoringTracker').set(dataToSave)
-            .then(() => {
-                console.log('✅ Данные сохранены в Firebase');
-            })
-            .catch((error) => {
-                console.error('❌ Ошибка сохранения в Firebase:', error);
-                // Fallback на localStorage
-                localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
-                console.log('💾 Данные сохранены в localStorage (fallback)');
-            });
+    if (firebaseAvailable) {
+        try {
+            database.ref('refactoringTracker').set(dataToSave)
+                .then(() => {
+                    console.log('✅ Данные сохранены в Firebase');
+                    // Также сохраняем в localStorage как backup
+                    localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
+                })
+                .catch((error) => {
+                    console.error('❌ Ошибка сохранения в Firebase:', error);
+                    console.error('Детали ошибки:', error.message, error.code);
+                    // Fallback на localStorage
+                    localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
+                    console.log('💾 Данные сохранены в localStorage (fallback)');
+                });
+        } catch (error) {
+            console.error('❌ Исключение при сохранении в Firebase:', error);
+            localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
+            console.log('💾 Данные сохранены в localStorage (fallback)');
+        }
     } else {
         // Используем localStorage как fallback
         localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
-        console.log('💾 Данные сохранены в localStorage');
+        console.log('💾 Данные сохранены в localStorage (Firebase недоступен)');
     }
 }
 
