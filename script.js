@@ -1,20 +1,20 @@
 // Исходные данные из плана
 const phasesData = [
-    { id: 1, name: 'Workers', files: 34, lines: 4640, mrs: 18, hours: 25 },
-    { id: 2, name: 'Crons', files: 32, lines: 9829, mrs: 22, hours: 32 },
-    { id: 3, name: 'Html', files: 64, lines: 17598, mrs: 41, hours: 59 },
-    { id: 4, name: 'Rpc', files: 8, lines: 3361, mrs: 6, hours: 9 },
-    { id: 5, name: 'Base Controllers', files: 3, lines: 600, mrs: 3, hours: 4 },
+    { id: 1, name: 'Workers', files: 34, lines: 4640, mrs: 27, hours: 25 },
+    { id: 2, name: 'Crons', files: 32, lines: 9829, mrs: 35, hours: 32 },
+    { id: 3, name: 'Html Controllers', files: 64, lines: 17598, mrs: 103, hours: 59 },
+    { id: 4, name: 'Rpc', files: 8, lines: 3361, mrs: 20, hours: 9 },
+    { id: 5, name: 'Base Controllers', files: 3, lines: 600, mrs: 5, hours: 4 },
     { id: 6, name: 'Components', files: 537, lines: 102875, mrs: 250, hours: 350 },
-    { id: 7, name: 'ServiceProvider', files: 137, lines: 23001, mrs: 60, hours: 84 },
-    { id: 8, name: 'Models/DAOs', files: 114, lines: 10904, mrs: 35, hours: 49 },
-    { id: 9, name: 'System Core', files: 28, lines: 5485, mrs: 18, hours: 25 },
+    { id: 7, name: 'ServiceProvider', files: 137, lines: 23001, mrs: 134, hours: 84 },
+    { id: 8, name: 'Models/DAOs', files: 114, lines: 10904, mrs: 64, hours: 49 },
+    { id: 9, name: 'System Core', files: 28, lines: 5485, mrs: 32, hours: 25 },
     { id: 10, name: 'Supporting Modules', files: 145, lines: 31500, mrs: 50, hours: 70 },
-    { id: 11, name: 'Infrastructure', files: 20, lines: 1000, mrs: 5, hours: 7 }
+    { id: 11, name: 'Infrastructure', files: 20, lines: 1000, mrs: 6, hours: 7 }
 ];
 
 const totalHours = 714;
-const totalMRs = 508;
+const totalMRs = 1101;
 
 const programmerNames = {
     programmer1: 'Женя',
@@ -40,6 +40,75 @@ let appState = {
         }))
     }))
 };
+
+// Функция для установки начальных завершенных MRs согласно актуальным данным
+function setInitialCompletedMRs() {
+    const completedData = {
+        1: 0,   // Workers: 0
+        2: 39,  // Crons: 39 (больше чем estimated 35, но отметим все 35)
+        3: 10,  // Html Controllers: 10
+        4: 0,   // Rpc: 0
+        5: 0,   // Base Controllers: 0
+        7: 1,   // ServiceProvider: 1
+        8: 0,   // Models/DAOs: 0
+        9: 1,   // System Core: 1
+        11: 0   // Infrastructure: 0
+    };
+    
+    appState.phases.forEach(phase => {
+        const completedCount = completedData[phase.id] || 0;
+        if (completedCount > 0) {
+            // Отмечаем первые N MRs как завершенные
+            const maxToComplete = Math.min(completedCount, phase.mrsList.length);
+            phase.completedMRs = phase.mrsList.slice(0, maxToComplete).map(mr => mr.id);
+        } else {
+            phase.completedMRs = [];
+        }
+    });
+}
+
+// Функция для обновления завершенных MRs согласно актуальной таблице (сохраняет назначения)
+function updateCompletedMRsFromTable() {
+    const completedData = {
+        1: 0,   // Workers: 0
+        2: 35,  // Crons: 39 в таблице, но estimated 35, отметим все 35
+        3: 10,  // Html Controllers: 10
+        4: 0,   // Rpc: 0
+        5: 0,   // Base Controllers: 0
+        7: 1,   // ServiceProvider: 1
+        8: 0,   // Models/DAOs: 0
+        9: 1,   // System Core: 1
+        11: 0   // Infrastructure: 0
+    };
+    
+    let hasChanges = false;
+    appState.phases.forEach(phase => {
+        const completedCount = completedData[phase.id] || 0;
+        const expectedCompleted = completedCount > 0 
+            ? Math.min(completedCount, phase.mrsList.length)
+            : 0;
+        const currentCompleted = phase.completedMRs.length;
+        
+        if (expectedCompleted !== currentCompleted) {
+            hasChanges = true;
+            if (expectedCompleted > 0) {
+                // Отмечаем первые N MRs как завершенные (сохраняем назначения программистов)
+                phase.completedMRs = phase.mrsList.slice(0, expectedCompleted).map(mr => mr.id);
+            } else {
+                phase.completedMRs = [];
+            }
+            console.log(`📊 Фаза ${phase.id} (${phase.name}): обновлено завершенных MRs ${currentCompleted} → ${expectedCompleted}`);
+        }
+    });
+    
+    if (hasChanges) {
+        console.log('✅ Завершенные MRs обновлены согласно актуальной таблице');
+        // Сохраняем только если это не обновление из Firebase (чтобы избежать цикла)
+        if (!isUpdatingFromFirebase) {
+            saveState();
+        }
+    }
+}
 
 // Вычисление прогресса на основе завершенных MRs
 function calculateProgress(phase) {
@@ -89,6 +158,8 @@ function init() {
                         console.log('📥 Получены обновления из Firebase');
                         isUpdatingFromFirebase = true;
                         applySavedState(saved);
+                        // Обновляем завершенные MRs согласно актуальным данным
+                        updateCompletedMRsFromTable();
                         renderPhases();
                         renderProgrammers();
                         updateStats();
@@ -193,6 +264,8 @@ function loadState() {
                     if (saved && saved.phases) {
                         console.log('✅ Данные загружены из Firebase, применяем состояние...');
                         applySavedState(saved);
+                        // Обновляем завершенные MRs согласно актуальным данным
+                        updateCompletedMRsFromTable();
                         console.log('✅ Состояние применено, обновляем интерфейс...');
                         renderPhases();
                         renderProgrammers();
@@ -229,23 +302,35 @@ function loadFromLocalStorage() {
             console.log('📊 Данные из localStorage:', parsed);
             console.log('✅ Применяем состояние из localStorage...');
             applySavedState(parsed);
+            // Обновляем завершенные MRs согласно актуальным данным
+            updateCompletedMRsFromTable();
             renderPhases();
             renderProgrammers();
             updateStats();
             console.log('✅ Интерфейс обновлен с данными из localStorage');
         } catch (e) {
             console.error('Ошибка загрузки данных из localStorage:', e);
+            // Если ошибка, устанавливаем начальные значения
+            setInitialCompletedMRs();
+            saveState();
         }
     } else {
-        console.log('ℹ️ В localStorage нет сохраненных данных');
+        console.log('ℹ️ В localStorage нет сохраненных данных, устанавливаем начальные значения');
+        setInitialCompletedMRs();
+        saveState();
     }
 }
 
 function applySavedState(saved) {
-    console.log('🔄 Применяем сохраненное состояние...', saved);
+    console.log('🔄 Применяем сохраненное состояние...');
+    if (!saved || !saved.phases) {
+        console.log('⚠️ Нет сохраненных данных для применения');
+        return;
+    }
+    
     // Объединяем сохраненные данные с исходными
     appState.phases = phasesData.map((phase, index) => {
-        const savedPhase = saved.phases[index];
+        const savedPhase = saved.phases.find(sp => sp.id === phase.id) || saved.phases[index];
         const defaultMRsList = Array.from({ length: phase.mrs }, (_, i) => ({
             id: `${phase.id}-mr-${i + 1}`,
             number: i + 1,
@@ -255,6 +340,14 @@ function applySavedState(saved) {
         if (savedPhase) {
             // Восстанавливаем назначения MRs, если они есть
             let mrsList = savedPhase.mrsList || defaultMRsList;
+            
+            // Убеждаемся, что у всех MR есть правильный ID
+            mrsList = mrsList.map((mr, i) => ({
+                id: mr.id || `${phase.id}-mr-${i + 1}`,
+                number: mr.number || (i + 1),
+                assignedTo: mr.assignedTo || null
+            }));
+            
             // Если MRs меньше, чем должно быть, дополняем
             while (mrsList.length < phase.mrs) {
                 mrsList.push({
@@ -265,26 +358,22 @@ function applySavedState(saved) {
             }
             // Если MRs больше, обрезаем
             if (mrsList.length > phase.mrs) {
-                mrsList.splice(phase.mrs);
+                mrsList = mrsList.slice(0, phase.mrs);
             }
             
             // Нормализуем completedMRs - конвертируем старый формат в новый
-            let completedMRs = savedPhase.completedMRs || [];
-            // Если есть старый формат (без -mr-), конвертируем
-            completedMRs = completedMRs.map(mrId => {
+            let completedMRs = (savedPhase.completedMRs || []).map(mrId => {
                 // Если формат "1-1", конвертируем в "1-mr-1"
-                if (/^\d+-\d+$/.test(mrId) && !mrId.includes('-mr-')) {
+                if (typeof mrId === 'string' && /^\d+-\d+$/.test(mrId) && !mrId.includes('-mr-')) {
                     return mrId.replace(/^(\d+)-(\d+)$/, '$1-mr-$2');
                 }
                 return mrId;
+            }).filter(id => {
+                // Фильтруем только те ID, которые есть в mrsList
+                return mrsList.some(mr => mr.id === id);
             });
             
-            console.log(`📋 Фаза ${phase.id} (${phase.name}):`, {
-                completedMRs: completedMRs,
-                completedCount: completedMRs.length,
-                totalMRs: phase.mrs,
-                mrsList: mrsList.length
-            });
+            console.log(`📋 Фаза ${phase.id} (${phase.name}): завершено ${completedMRs.length}/${phase.mrs} MRs`);
             
             return {
                 ...phase,
@@ -317,7 +406,11 @@ function saveState() {
             id: p.id,
             name: p.name,
             completedMRs: p.completedMRs,
-            mrsList: p.mrsList
+            mrsList: p.mrsList.map(mr => ({
+                id: mr.id,
+                number: mr.number,
+                assignedTo: mr.assignedTo
+            }))
         })),
         lastUpdated: new Date().toISOString(),
         updatedBy: getCurrentUser() || 'anonymous'
@@ -336,31 +429,30 @@ function saveState() {
         firebaseAvailable: firebaseAvailable ? '✅' : '❌'
     });
     
+    // Всегда сохраняем в localStorage для надежности
+    try {
+        localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
+        console.log('💾 Данные сохранены в localStorage');
+    } catch (e) {
+        console.error('❌ Ошибка сохранения в localStorage:', e);
+    }
+    
     // Сохраняем в Firebase, если настроен
     if (firebaseAvailable) {
         try {
             database.ref('refactoringTracker').set(dataToSave)
                 .then(() => {
                     console.log('✅ Данные сохранены в Firebase');
-                    // Также сохраняем в localStorage как backup
-                    localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
                 })
                 .catch((error) => {
                     console.error('❌ Ошибка сохранения в Firebase:', error);
                     console.error('Детали ошибки:', error.message, error.code);
-                    // Fallback на localStorage
-                    localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
-                    console.log('💾 Данные сохранены в localStorage (fallback)');
                 });
         } catch (error) {
             console.error('❌ Исключение при сохранении в Firebase:', error);
-            localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
-            console.log('💾 Данные сохранены в localStorage (fallback)');
         }
     } else {
-        // Используем localStorage как fallback
-        localStorage.setItem('refactoringTracker', JSON.stringify(dataToSave));
-        console.log('💾 Данные сохранены в localStorage (Firebase недоступен)');
+        console.log('ℹ️ Firebase недоступен, данные сохранены только в localStorage');
     }
 }
 
@@ -529,13 +621,31 @@ function createPhaseCard(phase) {
 function toggleMR(phaseId, mrId, isCompleted) {
     const phase = appState.phases.find(p => p.id === phaseId);
     if (phase) {
+        // Нормализуем mrId - убеждаемся, что используем правильный формат из mrsList
+        const mr = phase.mrsList.find(m => {
+            if (m.id === mrId) return true;
+            // Проверяем альтернативный формат (для совместимости)
+            const altId = `${phase.id}-mr-${m.number}`;
+            if (altId === mrId) return true;
+            return false;
+        });
+        
+        // Используем правильный ID из объекта MR
+        const normalizedMrId = mr ? mr.id : mrId;
+        
+        console.log(`🔄 Переключение MR: phaseId=${phaseId}, mrId=${mrId}, normalized=${normalizedMrId}, isCompleted=${isCompleted}`);
+        
         if (isCompleted) {
-            if (!phase.completedMRs.includes(mrId)) {
-                phase.completedMRs.push(mrId);
+            if (!phase.completedMRs.includes(normalizedMrId)) {
+                phase.completedMRs.push(normalizedMrId);
+                console.log(`✅ MR ${normalizedMrId} отмечен как выполненный`);
             }
         } else {
-            phase.completedMRs = phase.completedMRs.filter(id => id !== mrId);
+            phase.completedMRs = phase.completedMRs.filter(id => id !== normalizedMrId);
+            console.log(`❌ MR ${normalizedMrId} снят с выполнения`);
         }
+        
+        console.log(`📊 Фаза ${phaseId}: завершено ${phase.completedMRs.length} из ${phase.mrsList.length} MRs`);
         saveState();
         renderPhases();
         updateStats();
@@ -547,14 +657,26 @@ function toggleMR(phaseId, mrId, isCompleted) {
 function openAssignMRModal(phaseId, mrId) {
     const modal = document.getElementById('assignModal');
     const phase = appState.phases.find(p => p.id === phaseId);
-    const mr = phase?.mrsList.find(m => m.id === mrId);
+    
+    // Ищем MR по ID, учитывая возможные форматы
+    const mr = phase?.mrsList.find(m => {
+        // Проверяем точное совпадение ID
+        if (m.id === mrId) return true;
+        // Проверяем альтернативный формат (для совместимости)
+        const altId = `${phase.id}-mr-${m.number}`;
+        if (altId === mrId) return true;
+        return false;
+    });
     
     if (phase && mr) {
         document.getElementById('modalPhaseName').textContent = `${phase.id}. ${phase.name} - MR #${mr.number}`;
         document.getElementById('modalDescription').textContent = `Выберите программиста для MR:`;
         modal.dataset.phaseId = phaseId;
-        modal.dataset.mrId = mrId;
+        // Сохраняем правильный ID MR
+        modal.dataset.mrId = mr.id;
         modal.style.display = 'block';
+    } else {
+        console.error(`❌ Не удалось найти MR: phaseId=${phaseId}, mrId=${mrId}`);
     }
 }
 
@@ -572,17 +694,32 @@ function closeAssignModal() {
 // Назначение программиста на MR
 function assignProgrammer(phaseId, programmer, mrId = null) {
     const phase = appState.phases.find(p => p.id === phaseId);
-    if (!phase) return;
+    if (!phase) {
+        console.error(`❌ Фаза ${phaseId} не найдена`);
+        return;
+    }
     
     if (mrId) {
         // Назначение на конкретный MR
-        const mr = phase.mrsList.find(m => m.id === mrId);
+        // Ищем MR по ID, учитывая возможные форматы
+        const mr = phase.mrsList.find(m => {
+            // Проверяем точное совпадение ID
+            if (m.id === mrId) return true;
+            // Проверяем альтернативный формат (для совместимости)
+            const altId = `${phase.id}-mr-${m.number}`;
+            if (altId === mrId) return true;
+            return false;
+        });
+        
         if (mr) {
             mr.assignedTo = programmer === 'unassigned' ? null : programmer;
+            console.log(`✅ Назначен программист ${programmer || 'не назначен'} на MR ${mr.id} (${mr.number})`);
             saveState();
             renderPhases();
             renderProgrammers();
             closeAssignModal();
+        } else {
+            console.error(`❌ MR с ID ${mrId} не найден в фазе ${phaseId}`);
         }
     }
 }
