@@ -91,6 +91,34 @@
         </div>
     </div>
 
+    <!-- Modal for MR note -->
+    <div id="noteModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closeNoteModal">&times;</span>
+            <h2>Примечание к MR</h2>
+            <p id="noteModalDescription"><strong id="noteModalPhaseName"></strong></p>
+            <div style="margin: 20px 0;">
+                <label for="mrNoteInput" style="display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-primary);">
+                    Введите примечание (ветка GitLab, ссылка, комментарий и т.д.):
+                </label>
+                <textarea 
+                    id="mrNoteInput" 
+                    rows="6" 
+                    placeholder="Например: feature/refactoring-workers или ссылка на ветку: https://gitlab.com/..."
+                    style="width: 100%; padding: 12px; border: 2px solid var(--border-color); border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical; box-sizing: border-box;"
+                ></textarea>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button id="saveNoteBtn" style="padding: 10px 20px; background: var(--primary-color); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                    Сохранить
+                </button>
+                <button id="cancelNoteBtn" style="padding: 10px 20px; background: var(--border-color); color: var(--text-primary); border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase SDK v6.6.1 - используем Google CDN (работает стабильно) -->
     <script>
         // Динамическая загрузка Firebase через Google CDN

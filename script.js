@@ -36,7 +36,8 @@ let appState = {
         mrsList: Array.from({ length: phase.mrs }, (_, i) => ({
             id: `${phase.id}-mr-${i + 1}`,
             number: i + 1,
-            assignedTo: null // Программист, назначенный на MR
+            assignedTo: null, // Программист, назначенный на MR
+            note: '' // Текстовое примечание (ветка GitLab, комментарий и т.д.)
         }))
     }))
 };
@@ -334,7 +335,8 @@ function applySavedState(saved) {
         const defaultMRsList = Array.from({ length: phase.mrs }, (_, i) => ({
             id: `${phase.id}-mr-${i + 1}`,
             number: i + 1,
-            assignedTo: null
+            assignedTo: null,
+            note: ''
         }));
         
         if (savedPhase) {
@@ -345,7 +347,8 @@ function applySavedState(saved) {
             mrsList = mrsList.map((mr, i) => ({
                 id: mr.id || `${phase.id}-mr-${i + 1}`,
                 number: mr.number || (i + 1),
-                assignedTo: mr.assignedTo || null
+                assignedTo: mr.assignedTo || null,
+                note: mr.note || ''
             }));
             
             // Если MRs меньше, чем должно быть, дополняем
@@ -353,7 +356,8 @@ function applySavedState(saved) {
                 mrsList.push({
                     id: `${phase.id}-mr-${mrsList.length + 1}`,
                     number: mrsList.length + 1,
-                    assignedTo: null
+                    assignedTo: null,
+                    note: ''
                 });
             }
             // Если MRs больше, обрезаем
@@ -384,7 +388,10 @@ function applySavedState(saved) {
         return { 
             ...phase, 
             completedMRs: [],
-            mrsList: defaultMRsList
+            mrsList: defaultMRsList.map(mr => ({
+                ...mr,
+                note: ''
+            }))
         };
     });
     console.log('✅ Состояние применено');
@@ -409,7 +416,8 @@ function saveState() {
             mrsList: p.mrsList.map(mr => ({
                 id: mr.id,
                 number: mr.number,
-                assignedTo: mr.assignedTo
+                assignedTo: mr.assignedTo,
+                note: mr.note || ''
             }))
         })),
         lastUpdated: new Date().toISOString(),
@@ -540,6 +548,7 @@ function createPhaseCard(phase) {
         // Используем формат ID, который соответствует сохраненному формату
         const mrId = mr.id || `${phase.id}-mr-${mr.number}`;
         const isCompleted = phase.completedMRs.includes(mrId);
+        const hasNote = mr.note && mr.note.trim().length > 0;
         const assignedBadge = mr.assignedTo 
             ? `<span class="programmer-badge-small ${mr.assignedTo}">
                 ${programmerIcons[mr.assignedTo]} ${programmerNames[mr.assignedTo]}
@@ -562,8 +571,11 @@ function createPhaseCard(phase) {
                 </label>
                 <div class="mr-assignment">
                     ${assignedBadge}
-                    <button class="assign-mr-btn-small" data-phase-id="${phase.id}" data-mr-id="${mr.id}">
+                    <button class="assign-mr-btn-small" data-phase-id="${phase.id}" data-mr-id="${mr.id}" title="Назначить программиста">
                         ${mr.assignedTo ? '✏️' : '👤'}
+                    </button>
+                    <button class="note-mr-btn-small ${hasNote ? 'has-note' : ''}" data-phase-id="${phase.id}" data-mr-id="${mr.id}" title="${hasNote ? 'Редактировать примечание' : 'Добавить примечание'}">
+                        ${hasNote ? '📝' : '📄'}
                     </button>
                 </div>
             </div>
@@ -611,6 +623,16 @@ function createPhaseCard(phase) {
             const phaseId = parseInt(e.target.closest('button').dataset.phaseId);
             const mrId = e.target.closest('button').dataset.mrId;
             openAssignMRModal(phaseId, mrId);
+        });
+    });
+    
+    // Обработчики для примечаний к MRs
+    const noteMRBtns = card.querySelectorAll('.note-mr-btn-small');
+    noteMRBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const phaseId = parseInt(e.target.closest('button').dataset.phaseId);
+            const mrId = e.target.closest('button').dataset.mrId;
+            openNoteModal(phaseId, mrId);
         });
     });
     
@@ -677,6 +699,71 @@ function openAssignMRModal(phaseId, mrId) {
         modal.style.display = 'block';
     } else {
         console.error(`❌ Не удалось найти MR: phaseId=${phaseId}, mrId=${mrId}`);
+    }
+}
+
+// Открытие модального окна для примечания к MR
+function openNoteModal(phaseId, mrId) {
+    const modal = document.getElementById('noteModal');
+    const phase = appState.phases.find(p => p.id === phaseId);
+    
+    // Ищем MR по ID, учитывая возможные форматы
+    const mr = phase?.mrsList.find(m => {
+        // Проверяем точное совпадение ID
+        if (m.id === mrId) return true;
+        // Проверяем альтернативный формат (для совместимости)
+        const altId = `${phase.id}-mr-${m.number}`;
+        if (altId === mrId) return true;
+        return false;
+    });
+    
+    if (phase && mr) {
+        document.getElementById('noteModalPhaseName').textContent = `${phase.id}. ${phase.name} - MR #${mr.number}`;
+        document.getElementById('mrNoteInput').value = mr.note || '';
+        modal.dataset.phaseId = phaseId;
+        modal.dataset.mrId = mr.id;
+        modal.style.display = 'block';
+        // Фокус на текстовое поле
+        setTimeout(() => {
+            document.getElementById('mrNoteInput').focus();
+        }, 100);
+    } else {
+        console.error(`❌ Не удалось найти MR: phaseId=${phaseId}, mrId=${mrId}`);
+    }
+}
+
+// Закрытие модального окна примечаний
+function closeNoteModal() {
+    const modal = document.getElementById('noteModal');
+    modal.style.display = 'none';
+}
+
+// Сохранение примечания к MR
+function saveMRNote(phaseId, mrId, note) {
+    const phase = appState.phases.find(p => p.id === phaseId);
+    if (!phase) {
+        console.error(`❌ Фаза ${phaseId} не найдена`);
+        return;
+    }
+    
+    // Ищем MR по ID, учитывая возможные форматы
+    const mr = phase.mrsList.find(m => {
+        // Проверяем точное совпадение ID
+        if (m.id === mrId) return true;
+        // Проверяем альтернативный формат (для совместимости)
+        const altId = `${phase.id}-mr-${m.number}`;
+        if (altId === mrId) return true;
+        return false;
+    });
+    
+    if (mr) {
+        mr.note = note.trim();
+        console.log(`✅ Примечание сохранено для MR ${mr.id} (${mr.number}): ${mr.note.substring(0, 50)}...`);
+        saveState();
+        renderPhases();
+        closeNoteModal();
+    } else {
+        console.error(`❌ MR с ID ${mrId} не найден в фазе ${phaseId}`);
     }
 }
 
@@ -860,7 +947,7 @@ function setupEventListeners() {
     // Фильтр по программисту
     document.getElementById('programmerFilter').addEventListener('change', renderPhases);
     
-    // Модальное окно
+    // Модальное окно назначения программиста
     const modal = document.getElementById('assignModal');
     const closeBtn = modal.querySelector('.close');
     
@@ -868,6 +955,41 @@ function setupEventListeners() {
     window.addEventListener('click', (e) => {
         if (e.target === modal) {
             closeAssignModal();
+        }
+    });
+    
+    // Модальное окно примечаний
+    const noteModal = document.getElementById('noteModal');
+    const closeNoteBtn = document.getElementById('closeNoteModal');
+    const saveNoteBtn = document.getElementById('saveNoteBtn');
+    const cancelNoteBtn = document.getElementById('cancelNoteBtn');
+    
+    closeNoteBtn.addEventListener('click', closeNoteModal);
+    cancelNoteBtn.addEventListener('click', closeNoteModal);
+    saveNoteBtn.addEventListener('click', () => {
+        const phaseId = parseInt(noteModal.dataset.phaseId);
+        const mrId = noteModal.dataset.mrId;
+        const note = document.getElementById('mrNoteInput').value;
+        if (phaseId && mrId) {
+            saveMRNote(phaseId, mrId, note);
+        }
+    });
+    
+    window.addEventListener('click', (e) => {
+        if (e.target === noteModal) {
+            closeNoteModal();
+        }
+    });
+    
+    // Сохранение примечания по Enter (Ctrl+Enter или Cmd+Enter)
+    document.getElementById('mrNoteInput').addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            const phaseId = parseInt(noteModal.dataset.phaseId);
+            const mrId = noteModal.dataset.mrId;
+            const note = document.getElementById('mrNoteInput').value;
+            if (phaseId && mrId) {
+                saveMRNote(phaseId, mrId, note);
+            }
         }
     });
     
@@ -906,7 +1028,8 @@ function setupEventListeners() {
                 mrsList: Array.from({ length: phase.mrs }, (_, i) => ({
                     id: `${phase.id}-mr-${i + 1}`,
                     number: i + 1,
-                    assignedTo: null
+                    assignedTo: null,
+                    note: ''
                 }))
             }));
             saveState();
